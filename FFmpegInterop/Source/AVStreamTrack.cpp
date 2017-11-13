@@ -72,7 +72,7 @@ namespace FFmpegInterop
 		avAudioCodecCtx = nullptr;
 		audioSampleProvider = nullptr;
 		m_pReader_ptr = nullptr;
-
+		return true;
 	}
 
 	HRESULT AVStreamTrack::CreateAudioStreamDescriptor(bool forceAudioDecode)

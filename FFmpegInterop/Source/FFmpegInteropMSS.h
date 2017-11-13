@@ -118,7 +118,7 @@ namespace FFmpegInterop
 		VideoStreamDescriptor^ videoStreamDescriptor;
 		int audioStreamIndex;
 		int videoStreamIndex;
-
+		bool m_forceAudioDecode;
 		bool rotateVideo;
 		int rotationAngle;
 		std::recursive_mutex mutexGuard;

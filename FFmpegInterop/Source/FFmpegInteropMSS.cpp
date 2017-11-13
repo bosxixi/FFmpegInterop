@@ -268,7 +268,7 @@ HRESULT FFmpegInteropMSS::CreateMediaStreamSource(IRandomAccessStream^ stream, b
 HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVideoDecode)
 {
 	HRESULT hr = S_OK;
-
+	m_forceAudioDecode = forceAudioDecode;
 	if (SUCCEEDED(hr))
 	{
 		if (avformat_find_stream_info(avFormatCtx, NULL) < 0)
@@ -301,7 +301,7 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 			if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec1)
 			{
 				auto result = av_stream_track.CreateTracks(audioStreamIndex, avFormatCtx, avAudioCodec1, forceAudioDecode, m_pReader);
-				if (result)
+			    if (result)
 				{
 					avStreamTracks.push_back(std::make_shared<AVStreamTrack>(av_stream_track));
 				}
@@ -312,6 +312,7 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 			avAudioCodec = avStreamTracks.at(0)->GetAVAudioCodec();
 			audioStreamIndex = avStreamTracks.at(0)->GetAudioStreamIndex();
 		}
+
 		if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec)
 		{
 			// allocate a new decoding context
@@ -800,7 +801,7 @@ void FFmpegInteropMSS::OnSampleRequested(Windows::Media::Core::MediaStreamSource
 								else
 								{
 									// Detect audio format and create audio stream descriptor accordingly
-									hr = CreateAudioStreamDescriptor(false);//todo
+									hr = CreateAudioStreamDescriptor(m_forceAudioDecode);//todo
 									if (SUCCEEDED(hr))
 									{
 										hr = audioSampleProvider->AllocateResources();
@@ -826,7 +827,7 @@ void FFmpegInteropMSS::OnSampleRequested(Windows::Media::Core::MediaStreamSource
 				}
 			}
 		}
-	/*	if (args->Request->StreamDescriptor == audioStreamDescriptor && audioSampleProvider != nullptr)
+		/*if (args->Request->StreamDescriptor == audioStreamDescriptor && audioSampleProvider != nullptr)
 		{
 			args->Request->Sample = audioSampleProvider->GetNextSample();
 		}
