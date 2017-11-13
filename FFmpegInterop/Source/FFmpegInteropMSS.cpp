@@ -24,6 +24,7 @@
 #include "UncompressedAudioSampleProvider.h"
 #include "UncompressedVideoSampleProvider.h"
 #include "shcore.h"
+#include "AVStreamTrack.h"
 
 extern "C"
 {
@@ -54,6 +55,7 @@ FFmpegInteropMSS::FFmpegInteropMSS()
 	, videoStreamIndex(AVERROR_STREAM_NOT_FOUND)
 	, fileStreamData(nullptr)
 	, fileStreamBuffer(nullptr)
+	, avStreamTracks()
 {
 	av_register_all();
 }
@@ -84,7 +86,7 @@ FFmpegInteropMSS::~FFmpegInteropMSS()
 	avformat_close_input(&avFormatCtx);
 	av_free(avIOCtx);
 	av_dict_free(&avDict);
-	
+
 	if (fileStreamData != nullptr)
 	{
 		fileStreamData->Release();
@@ -288,7 +290,28 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 	{
 		// Find the audio stream and its decoder
 		AVCodec* avAudioCodec = nullptr;
-		audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &avAudioCodec, 0);
+		//audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &avAudioCodec, 0);
+
+		for (size_t i = 0; i < avFormatCtx->nb_streams; i++)
+		{
+			AVCodec* avAudioCodec1 = nullptr;
+			AVStreamTrack av_stream_track(i);
+
+			audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, i, -1, &avAudioCodec1, 0);
+			if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec1)
+			{
+				auto result = av_stream_track.CreateTracks(audioStreamIndex, avFormatCtx, avAudioCodec1, forceAudioDecode, m_pReader);
+				if (result)
+				{
+					avStreamTracks.push_back(std::make_shared<AVStreamTrack>(av_stream_track));
+				}
+			}
+		}
+		if (avStreamTracks.size() > 0)
+		{
+			avAudioCodec = avStreamTracks.at(0)->GetAVAudioCodec();
+			audioStreamIndex = avStreamTracks.at(0)->GetAudioStreamIndex();
+		}
 		if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec)
 		{
 			// allocate a new decoding context

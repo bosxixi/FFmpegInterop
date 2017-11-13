@@ -21,6 +21,7 @@
 #include <mutex>
 #include "MediaSampleProvider.h"
 #include "FFmpegReader.h"
+#include "AVStreamTrack.h"
 
 using namespace Platform;
 using namespace Windows::Foundation;
@@ -34,6 +35,7 @@ extern "C"
 
 namespace FFmpegInterop
 {
+	class AVStreamTrack;
 	public ref class FFmpegInteropMSS sealed
 	{
 	public:
@@ -103,23 +105,24 @@ namespace FFmpegInterop
 		EventRegistrationToken startingRequestedToken;
 		EventRegistrationToken sampleRequestedToken;
 
-		internal:
+	internal:
 		AVDictionary* avDict;
 		AVIOContext* avIOCtx;
 		AVFormatContext* avFormatCtx;
 		AVCodecContext* avAudioCodecCtx;
 		AVCodecContext* avVideoCodecCtx;
+		std::vector<std::shared_ptr<AVStreamTrack>> avStreamTracks;
 
-		private:
+	private:
 		AudioStreamDescriptor^ audioStreamDescriptor;
 		VideoStreamDescriptor^ videoStreamDescriptor;
 		int audioStreamIndex;
 		int videoStreamIndex;
-		
+
 		bool rotateVideo;
 		int rotationAngle;
 		std::recursive_mutex mutexGuard;
-		
+
 		MediaSampleProvider^ audioSampleProvider;
 		MediaSampleProvider^ videoSampleProvider;
 
