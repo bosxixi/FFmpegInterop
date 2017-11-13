@@ -446,20 +446,56 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 		// Convert media duration from AV_TIME_BASE to TimeSpan unit
 		mediaDuration = { LONGLONG(avFormatCtx->duration * 10000000 / double(AV_TIME_BASE)) };
 
-		if (audioStreamDescriptor)
+		if (avStreamTracks.size() > 0)
 		{
 			if (videoStreamDescriptor)
 			{
-				mss = ref new MediaStreamSource(videoStreamDescriptor, audioStreamDescriptor);
+				if (mss)
+				{
+					mss->AddStreamDescriptor(videoStreamDescriptor);
+					for (auto f : avStreamTracks)
+					{
+						mss->AddStreamDescriptor(f->GetAudioStreamDescriptor());
+					}
+				}
+				else
+				{
+					mss = ref new MediaStreamSource(videoStreamDescriptor);
+					for (auto f : avStreamTracks)
+					{
+						mss->AddStreamDescriptor(f->GetAudioStreamDescriptor());
+					}
+				}
 			}
 			else
 			{
-				mss = ref new MediaStreamSource(audioStreamDescriptor);
+				if (mss)
+				{
+					for (auto f : avStreamTracks)
+					{
+						mss->AddStreamDescriptor(f->GetAudioStreamDescriptor());
+					}
+				}
+				else
+				{
+					mss = ref new MediaStreamSource(avStreamTracks.at(0)->GetAudioStreamDescriptor());
+					for (size_t i = 1; i < avStreamTracks.size(); i++)
+					{
+						mss->AddStreamDescriptor(avStreamTracks.at(i)->GetAudioStreamDescriptor());
+					}
+				}
 			}
 		}
 		else if (videoStreamDescriptor)
 		{
-			mss = ref new MediaStreamSource(videoStreamDescriptor);
+			if (mss)
+			{
+				mss->AddStreamDescriptor(videoStreamDescriptor);
+			}
+			else
+			{
+				mss = ref new MediaStreamSource(videoStreamDescriptor);
+			}
 		}
 		if (mss)
 		{
@@ -481,6 +517,41 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 		{
 			hr = E_OUTOFMEMORY;
 		}
+		//if (audioStreamDescriptor)
+		//{
+		//	if (videoStreamDescriptor)
+		//	{
+		//		mss = ref new MediaStreamSource(videoStreamDescriptor, audioStreamDescriptor);
+		//	}
+		//	else
+		//	{
+		//		mss = ref new MediaStreamSource(audioStreamDescriptor);
+		//	}
+		//}
+		//else if (videoStreamDescriptor)
+		//{
+		//	mss = ref new MediaStreamSource(videoStreamDescriptor);
+		//}
+		//if (mss)
+		//{
+		//	if (mediaDuration.Duration > 0)
+		//	{
+		//		mss->Duration = mediaDuration;
+		//		mss->CanSeek = true;
+		//	}
+		//	else
+		//	{
+		//		// Set buffer time to 0 for realtime streaming to reduce latency
+		//		mss->BufferTime = { 0 };
+		//	}
+
+		//	startingRequestedToken = mss->Starting += ref new TypedEventHandler<MediaStreamSource ^, MediaStreamSourceStartingEventArgs ^>(this, &FFmpegInteropMSS::OnStarting);
+		//	sampleRequestedToken = mss->SampleRequested += ref new TypedEventHandler<MediaStreamSource ^, MediaStreamSourceSampleRequestedEventArgs ^>(this, &FFmpegInteropMSS::OnSampleRequested);
+		//}
+		//else
+		//{
+		//	hr = E_OUTOFMEMORY;
+		//}
 	}
 
 	return hr;
@@ -638,7 +709,6 @@ HRESULT FFmpegInteropMSS::ParseOptions(PropertySet^ ffmpegOptions)
 void FFmpegInteropMSS::OnStarting(MediaStreamSource ^sender, MediaStreamSourceStartingEventArgs ^args)
 {
 	MediaStreamSourceStartingRequest^ request = args->Request;
-
 	// Perform seek operation when MediaStreamSource received seek event from MediaElement
 	if (request->StartPosition && request->StartPosition->Value.Duration <= mediaDuration.Duration)
 	{
@@ -683,11 +753,84 @@ void FFmpegInteropMSS::OnSampleRequested(Windows::Media::Core::MediaStreamSource
 	mutexGuard.lock();
 	if (mss != nullptr)
 	{
-		if (args->Request->StreamDescriptor == audioStreamDescriptor && audioSampleProvider != nullptr)
+		for (auto at : avStreamTracks)
+		{
+			if (args->Request->StreamDescriptor == at->GetAudioStreamDescriptor() )
+			{
+				auto index = at->GetAudioStreamIndex();
+				if (index == audioStreamIndex)
+				{
+					args->Request->Sample = audioSampleProvider->GetNextSample();
+					mutexGuard.unlock();
+					return;
+				}
+				else
+				{
+					auto avAudioCodec = at->GetAVAudioCodec();
+					audioStreamIndex = index;
+					HRESULT hr = S_OK;
+					if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec)
+					{
+						// allocate a new decoding context
+						avAudioCodecCtx = avcodec_alloc_context3(avAudioCodec);
+						if (!avAudioCodecCtx)
+						{
+							hr = E_OUTOFMEMORY;
+							DebugMessage(L"Could not allocate a decoding context\n");
+							avformat_close_input(&avFormatCtx);
+						}
+
+						if (SUCCEEDED(hr))
+						{
+							// initialize the stream parameters with demuxer information
+							if (avcodec_parameters_to_context(avAudioCodecCtx, avFormatCtx->streams[audioStreamIndex]->codecpar) < 0)
+							{
+								hr = E_FAIL;
+								avformat_close_input(&avFormatCtx);
+								avcodec_free_context(&avAudioCodecCtx);
+							}
+
+							if (SUCCEEDED(hr))
+							{
+								if (avcodec_open2(avAudioCodecCtx, avAudioCodec, NULL) < 0)
+								{
+									avAudioCodecCtx = nullptr;
+									hr = E_FAIL;
+								}
+								else
+								{
+									// Detect audio format and create audio stream descriptor accordingly
+									hr = CreateAudioStreamDescriptor(false);//todo
+									if (SUCCEEDED(hr))
+									{
+										hr = audioSampleProvider->AllocateResources();
+										if (SUCCEEDED(hr))
+										{
+											m_pReader->SetAudioStream(audioStreamIndex, audioSampleProvider);
+										}
+									}
+
+									if (SUCCEEDED(hr))
+									{
+										// Convert audio codec name for property
+										hr = ConvertCodecName(avAudioCodec->name, &audioCodecName);
+									}
+								}
+							}
+						}
+					}
+
+					args->Request->Sample = audioSampleProvider->GetNextSample();
+					mutexGuard.unlock();
+					return;
+				}
+			}
+		}
+	/*	if (args->Request->StreamDescriptor == audioStreamDescriptor && audioSampleProvider != nullptr)
 		{
 			args->Request->Sample = audioSampleProvider->GetNextSample();
 		}
-		else if (args->Request->StreamDescriptor == videoStreamDescriptor && videoSampleProvider != nullptr)
+		else*/ if (args->Request->StreamDescriptor == videoStreamDescriptor && videoSampleProvider != nullptr)
 		{
 			args->Request->Sample = videoSampleProvider->GetNextSample();
 		}

@@ -26,6 +26,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Core;
+using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
@@ -64,7 +65,7 @@ namespace MediaPlayerCS
 
             if (file != null)
             {
-                mediaElement.Stop();
+                //mediaElement.Stop();
 
                 // Open StorageFile as IRandomAccessStream to be passed to FFmpegInteropMSS
                 IRandomAccessStream readStream = await file.OpenAsync(FileAccessMode.Read);
@@ -75,14 +76,17 @@ namespace MediaPlayerCS
                     bool forceDecodeAudio = toggleSwitchAudioDecode.IsOn;
                     bool forceDecodeVideo = toggleSwitchVideoDecode.IsOn;
 
-					// Instantiate FFmpegInteropMSS using the opened local file stream
+                    // Instantiate FFmpegInteropMSS using the opened local file stream
                     FFmpegMSS = FFmpegInteropMSS.CreateFFmpegInteropMSSFromStream(readStream, forceDecodeAudio, forceDecodeVideo);
                     MediaStreamSource mss = FFmpegMSS.GetMediaStreamSource();
 
                     if (mss != null)
                     {
                         // Pass MediaStreamSource to Media Element
-                        mediaElement.SetMediaStreamSource(mss);
+
+                        MediaSource ms = MediaSource.CreateFromMediaStreamSource(mss);
+                        _mediaPlaybackItem = new MediaPlaybackItem(ms);
+                        mediaElement.Source = _mediaPlaybackItem;
 
                         // Close control panel after file open
                         Splitter.IsPaneOpen = false;
@@ -98,61 +102,69 @@ namespace MediaPlayerCS
                 }
             }
         }
-
+        MediaPlaybackItem _mediaPlaybackItem;
         private void URIBoxKeyUp(object sender, KeyRoutedEventArgs e)
         {
             var textBox = sender as TextBox;
             String uri = textBox.Text;
 
-            // Only respond when the text box is not empty and after Enter key is pressed
-            if (e.Key == Windows.System.VirtualKey.Enter && !String.IsNullOrWhiteSpace(uri))
+            if (!String.IsNullOrEmpty(uri))
             {
-                // Mark event as handled to prevent duplicate event to re-triggered
-                e.Handled = true;
+                var index = int.Parse(uri);
 
-                try
-                {
-                    // Read toggle switches states and use them to setup FFmpeg MSS
-                    bool forceDecodeAudio = toggleSwitchAudioDecode.IsOn;
-                    bool forceDecodeVideo = toggleSwitchVideoDecode.IsOn;
+                _mediaPlaybackItem.AudioTracks.SelectedIndex = index;
 
-                    // Set FFmpeg specific options. List of options can be found in https://www.ffmpeg.org/ffmpeg-protocols.html
-                    PropertySet options = new PropertySet();
-
-                    // Below are some sample options that you can set to configure RTSP streaming
-                    // options.Add("rtsp_flags", "prefer_tcp");
-                    // options.Add("stimeout", 100000);
-
-                    // Instantiate FFmpegInteropMSS using the URI
-                    mediaElement.Stop();
-                    FFmpegMSS = FFmpegInteropMSS.CreateFFmpegInteropMSSFromUri(uri, forceDecodeAudio, forceDecodeVideo, options);
-                    if (FFmpegMSS != null)
-                    {
-                        MediaStreamSource mss = FFmpegMSS.GetMediaStreamSource();
-
-                        if (mss != null)
-                        {
-                            // Pass MediaStreamSource to Media Element
-                            mediaElement.SetMediaStreamSource(mss);
-
-                            // Close control panel after opening media
-                            Splitter.IsPaneOpen = false;
-                        }
-                        else
-                        {
-                            DisplayErrorMessage("Cannot open media");
-                        }
-                    }
-                    else
-                    {
-                        DisplayErrorMessage("Cannot open media");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    DisplayErrorMessage(ex.Message);
-                }
             }
+
+            //// Only respond when the text box is not empty and after Enter key is pressed
+            //if (e.Key == Windows.System.VirtualKey.Enter && !String.IsNullOrWhiteSpace(uri))
+            //{
+            //    // Mark event as handled to prevent duplicate event to re-triggered
+            //    e.Handled = true;
+
+            //    try
+            //    {
+            //        // Read toggle switches states and use them to setup FFmpeg MSS
+            //        bool forceDecodeAudio = toggleSwitchAudioDecode.IsOn;
+            //        bool forceDecodeVideo = toggleSwitchVideoDecode.IsOn;
+
+            //        // Set FFmpeg specific options. List of options can be found in https://www.ffmpeg.org/ffmpeg-protocols.html
+            //        PropertySet options = new PropertySet();
+
+            //        // Below are some sample options that you can set to configure RTSP streaming
+            //        // options.Add("rtsp_flags", "prefer_tcp");
+            //        // options.Add("stimeout", 100000);
+
+            //        // Instantiate FFmpegInteropMSS using the URI
+            //        mediaElement.Stop();
+            //        FFmpegMSS = FFmpegInteropMSS.CreateFFmpegInteropMSSFromUri(uri, forceDecodeAudio, forceDecodeVideo, options);
+            //        if (FFmpegMSS != null)
+            //        {
+            //            MediaStreamSource mss = FFmpegMSS.GetMediaStreamSource();
+
+            //            if (mss != null)
+            //            {
+            //                // Pass MediaStreamSource to Media Element
+            //                mediaElement.SetMediaStreamSource(mss);
+
+            //                // Close control panel after opening media
+            //                Splitter.IsPaneOpen = false;
+            //            }
+            //            else
+            //            {
+            //                DisplayErrorMessage("Cannot open media");
+            //            }
+            //        }
+            //        else
+            //        {
+            //            DisplayErrorMessage("Cannot open media");
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        DisplayErrorMessage(ex.Message);
+            //    }
+            //}
         }
 
         private void MediaFailed(object sender, ExceptionRoutedEventArgs e)
