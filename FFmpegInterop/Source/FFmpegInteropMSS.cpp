@@ -288,7 +288,16 @@ HRESULT FFmpegInteropMSS::InitFFmpegContext(bool forceAudioDecode, bool forceVid
 	{
 		// Find the audio stream and its decoder
 		AVCodec* avAudioCodec = nullptr;
-		audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &avAudioCodec, 0);
+		audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, 1, -1, &avAudioCodec, 0);
+		if (audioStreamIndex == AVERROR_STREAM_NOT_FOUND || !avAudioCodec)
+		{
+			audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, 0, -1, &avAudioCodec, 0);
+		}
+		if (audioStreamIndex == AVERROR_STREAM_NOT_FOUND || !avAudioCodec)
+		{
+			audioStreamIndex = av_find_best_stream(avFormatCtx, AVMEDIA_TYPE_AUDIO, 2, -1, &avAudioCodec, 0);
+		}
+
 		if (audioStreamIndex != AVERROR_STREAM_NOT_FOUND && avAudioCodec)
 		{
 			// allocate a new decoding context
