@@ -30,7 +30,7 @@ namespace FFmpegInterop
 	MediaSampleProvider^ AVStreamTrack::GetMediaSampleProvider() { return audioSampleProvider; }
 	AudioStreamDescriptor^ AVStreamTrack::GetAudioStreamDescriptor() { return audioStreamDescriptor; }
 	AVCodecContext* AVStreamTrack::GetAVCodecContext() { return avAudioCodecCtx; }
-	bool AVStreamTrack::CreateTracks(int value, AVFormatContext* paramavFormatCtx, AVCodec* avAudioCodec, bool forceAudioDecode, FFmpegReader^ m_pReader)
+	bool AVStreamTrack::CreateTracks(int value, AVFormatContext* paramavFormatCtx, AVCodec* avAudioCodec, bool forceAudioDecode, bool audioPassthrough, FFmpegReader^ m_pReader)
 	{
 		audioStreamIndex = value;
 		avFormatCtx_ptr = std::make_shared<AVFormatContext*>(paramavFormatCtx);
@@ -57,7 +57,7 @@ namespace FFmpegInterop
 			return false;
 		}
 
-		auto hr = AVStreamTrack::CreateAudioStreamDescriptor(forceAudioDecode);
+		auto hr = AVStreamTrack::CreateAudioStreamDescriptor(forceAudioDecode, audioPassthrough);
 
 		if (SUCCEEDED(hr))
 		{
@@ -75,9 +75,16 @@ namespace FFmpegInterop
 		return true;
 	}
 
-	HRESULT AVStreamTrack::CreateAudioStreamDescriptor(bool forceAudioDecode)
+	HRESULT AVStreamTrack::CreateAudioStreamDescriptor(bool forceAudioDecode, bool audioPassthrough)
 	{
-		if (avAudioCodecCtx->codec_id == AV_CODEC_ID_AAC && !forceAudioDecode)
+		if (audioPassthrough)
+		{
+			audioStreamDescriptor = ref new AudioStreamDescriptor(AudioEncodingProperties::CreatePcm(avAudioCodecCtx->sample_rate, avAudioCodecCtx->channels, 16));
+			audioSampleProvider = ref new MediaSampleProvider(*m_pReader_ptr, *avFormatCtx_ptr, avAudioCodecCtx);
+			audioSampleProvider->SetCurrentStreamIndex(audioStreamIndex);
+			return (audioStreamDescriptor != nullptr && audioSampleProvider != nullptr) ? S_OK : E_OUTOFMEMORY;
+		}
+		/*if (avAudioCodecCtx->codec_id == AV_CODEC_ID_AAC && !forceAudioDecode)
 		{
 			if (avAudioCodecCtx->extradata_size == 0)
 			{
@@ -89,7 +96,7 @@ namespace FFmpegInterop
 			}
 			audioSampleProvider = ref new MediaSampleProvider(*m_pReader_ptr, *avFormatCtx_ptr, avAudioCodecCtx);
 		}
-		else if (avAudioCodecCtx->codec_id == AV_CODEC_ID_MP3 && !forceAudioDecode)
+		else*/ if (avAudioCodecCtx->codec_id == AV_CODEC_ID_MP3 && !forceAudioDecode)
 		{
 			audioStreamDescriptor = ref new AudioStreamDescriptor(AudioEncodingProperties::CreateMp3(avAudioCodecCtx->sample_rate, avAudioCodecCtx->channels, (unsigned int)avAudioCodecCtx->bit_rate));
 			audioSampleProvider = ref new MediaSampleProvider(*m_pReader_ptr, *avFormatCtx_ptr, avAudioCodecCtx);

@@ -39,10 +39,10 @@ namespace FFmpegInterop
 	public ref class FFmpegInteropMSS sealed
 	{
 	public:
-		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromStream(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode, PropertySet^ ffmpegOptions);
-		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromStream(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode);
-		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromUri(String^ uri, bool forceAudioDecode, bool forceVideoDecode, PropertySet^ ffmpegOptions);
-		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromUri(String^ uri, bool forceAudioDecode, bool forceVideoDecode);
+		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromStream(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough, PropertySet^ ffmpegOptions);
+		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromStream(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough);
+		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromUri(String^ uri, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough, PropertySet^ ffmpegOptions);
+		static FFmpegInteropMSS^ CreateFFmpegInteropMSSFromUri(String^ uri, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough);
 
 		// Contructor
 		MediaStreamSource^ GetMediaStreamSource();
@@ -91,10 +91,10 @@ namespace FFmpegInterop
 	private:
 		FFmpegInteropMSS();
 
-		HRESULT CreateMediaStreamSource(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode, PropertySet^ ffmpegOptions);
-		HRESULT CreateMediaStreamSource(String^ uri, bool forceAudioDecode, bool forceVideoDecode, PropertySet^ ffmpegOptions);
-		HRESULT InitFFmpegContext(bool forceAudioDecode, bool forceVideoDecode);
-		HRESULT CreateAudioStreamDescriptor(bool forceAudioDecode);
+		HRESULT CreateMediaStreamSource(IRandomAccessStream^ stream, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough, PropertySet^ ffmpegOptions);
+		HRESULT CreateMediaStreamSource(String^ uri, bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough, PropertySet^ ffmpegOptions);
+		HRESULT InitFFmpegContext(bool forceAudioDecode, bool forceVideoDecode, bool audioPassthrough);
+		HRESULT CreateAudioStreamDescriptor(bool forceAudioDecode, bool audioPassthrough);
 		HRESULT CreateVideoStreamDescriptor(bool forceVideoDecode);
 		HRESULT ConvertCodecName(const char* codecName, String^ *outputCodecName);
 		HRESULT ParseOptions(PropertySet^ ffmpegOptions);
@@ -119,6 +119,7 @@ namespace FFmpegInterop
 		int audioStreamIndex;
 		int videoStreamIndex;
 		bool m_forceAudioDecode;
+		bool m_audioPassthrough;
 		bool rotateVideo;
 		int rotationAngle;
 		std::recursive_mutex mutexGuard;

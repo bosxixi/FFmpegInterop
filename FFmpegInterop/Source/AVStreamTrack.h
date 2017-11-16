@@ -32,10 +32,10 @@ namespace FFmpegInterop
 		AudioStreamDescriptor^ GetAudioStreamDescriptor();
 		AVCodecContext* GetAVCodecContext();
 		AVCodec* GetAVAudioCodec();
-		bool CreateTracks(int value, AVFormatContext* paramavFormatCtx, AVCodec* avAudioCodec, bool forceAudioDecode, FFmpegReader^ m_pReader);
+		bool CreateTracks(int value, AVFormatContext* paramavFormatCtx, AVCodec* avAudioCodec, bool forceAudioDecode, bool audioPassthrough, FFmpegReader^ m_pReader);
 
 	private:
-		HRESULT AVStreamTrack::CreateAudioStreamDescriptor(bool forceAudioDecode);
+		HRESULT AVStreamTrack::CreateAudioStreamDescriptor(bool forceAudioDecode, bool audioPassthrough);
 		HRESULT AVStreamTrack::ConvertCodecName(const char* codecName, String^ *outputCodecName);
 		int _value;
 		int audioStreamIndex;

@@ -77,7 +77,7 @@ namespace MediaPlayerCS
                     bool forceDecodeVideo = toggleSwitchVideoDecode.IsOn;
 
                     // Instantiate FFmpegInteropMSS using the opened local file stream
-                    FFmpegMSS = FFmpegInteropMSS.CreateFFmpegInteropMSSFromStream(readStream, forceDecodeAudio, forceDecodeVideo);
+                    FFmpegMSS = FFmpegInteropMSS.CreateFFmpegInteropMSSFromStream(readStream, forceDecodeAudio, forceDecodeVideo, true);
                     MediaStreamSource mss = FFmpegMSS.GetMediaStreamSource();
 
                     if (mss != null)
